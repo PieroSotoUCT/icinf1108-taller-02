@@ -7,7 +7,10 @@ from app.pets.pets_schemas import Pet
 from app.shared.datetimes import utc_now
 from app.shared.exceptions import conflict
 from app.shared.types import FieldErrors
-from app.students.students_repository import StudentsRepository
+from app.students.students_repository import (
+    StudentsRepository,
+    StudentsRepositoryProtocol,
+)
 from app.students.students_schemas import (
     CreateStudentDto,
     Student,
@@ -17,13 +20,19 @@ from app.students.students_schemas import (
 
 
 class StudentsService:
-    def __init__(self, repository: StudentsRepository, pets: PetsRepository) -> None:
+    def __init__(
+        self,
+        repository: StudentsRepositoryProtocol,
+        pets: PetsRepository,
+    ) -> None:
         self.repository = repository
         self.pets_repository = pets
 
     def find_all(self) -> StudentList:
         students = sorted(
-            self.repository.find_all(), key=lambda s: s.createdAt, reverse=True
+            self.repository.find_all(),
+            key=lambda student: student.createdAt,
+            reverse=True,
         )
 
         return StudentList(total=len(students), items=students)
@@ -55,16 +64,21 @@ class StudentsService:
 
         self.repository.save(student)
 
-        # En SQL/ORM, insertar el estudiante y sus mascotas debe ir dentro de una
-        # transacción: si una mascota falla, el estudiante no debe quedar creado.
+        # Cuando ambos repositorios utilicen SQLAlchemy, el estudiante y sus
+        # mascotas deberán crearse dentro de una única transacción.
         for pet_data in data.pets:
             existing = self.pets_repository.find_by_student_and_name(
-                student.id, pet_data.name
+                student.id,
+                pet_data.name,
             )
 
             if existing is not None:
                 raise conflict(
-                    {"name": {"message": "Ya tienes una mascota con ese nombre"}}
+                    {
+                        "name": {
+                            "message": "Ya tienes una mascota con ese nombre"
+                        }
+                    }
                 )
 
             pet_now = utc_now()
@@ -82,7 +96,11 @@ class StudentsService:
 
         return student
 
-    def update(self, student_id: str, data: UpdateStudentDto) -> Student:
+    def update(
+        self,
+        student_id: str,
+        data: UpdateStudentDto,
+    ) -> Student:
         existing = self.find_by_id(student_id)
         self.assert_no_conflicts(data, except_id=student_id)
 
@@ -109,18 +127,27 @@ class StudentsService:
         errors: FieldErrors = {}
 
         if data.email:
-            existing = self.repository.find_by_email(data.email)
+            existing = self.repository.find_by_email(str(data.email))
+
             if existing and existing.id != except_id:
-                errors["email"] = {"message": "El correo electrónico ya está en uso"}
+                errors["email"] = {
+                    "message": "El correo electrónico ya está en uso"
+                }
 
         if data.username:
             existing = self.repository.find_by_username(data.username)
+
             if existing and existing.id != except_id:
-                errors["username"] = {"message": "El nombre de usuario ya está en uso"}
+                errors["username"] = {
+                    "message": "El nombre de usuario ya está en uso"
+                }
 
         if errors:
             raise conflict(errors)
 
 
 students_repository = StudentsRepository()
-students_service = StudentsService(students_repository, pets_repository)
+students_service = StudentsService(
+    students_repository,
+    pets_repository,
+)

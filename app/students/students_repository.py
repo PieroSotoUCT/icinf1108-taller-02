@@ -1,5 +1,21 @@
+from typing import Protocol
+
 from app.shared.in_memory_store import InMemoryStore
 from app.students.students_schemas import Student
+
+
+class StudentsRepositoryProtocol(Protocol):
+    def find_all(self) -> list[Student]: ...
+
+    def find_by_id(self, student_id: str) -> Student | None: ...
+
+    def find_by_email(self, email: str) -> Student | None: ...
+
+    def find_by_username(self, username: str) -> Student | None: ...
+
+    def save(self, student: Student) -> Student: ...
+
+    def delete(self, student_id: str) -> None: ...
 
 
 class StudentsRepository:
@@ -13,11 +29,15 @@ class StudentsRepository:
         return self._store.get(student_id)
 
     def find_by_email(self, email: str) -> Student | None:
-        matches = self._store.find_by(lambda student: student.email == email)
+        matches = self._store.find_by(
+            lambda student: student.email == email
+        )
         return matches[0] if matches else None
 
     def find_by_username(self, username: str) -> Student | None:
-        matches = self._store.find_by(lambda student: student.username == username)
+        matches = self._store.find_by(
+            lambda student: student.username == username
+        )
         return matches[0] if matches else None
 
     def save(self, student: Student) -> Student:
