@@ -489,3 +489,6 @@ tsconfig.tsbuildinfo
 solucion/
 
 .env
+
+# Configuración local de VS Code
+.vscode/
