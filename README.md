@@ -1,5 +1,9 @@
 # CRUD Students & Pets (FastAPI)
 
+La rama `piero` agrega PostgreSQL y Adminer para el Taller Evaluado II. La API ya
+puede comprobar su conexión a PostgreSQL; los repositorios CRUD del template aún
+guardan datos en memoria hasta que Gabriel y Roberto integren el ORM.
+
 Proyecto FastAPI que implementa un **CRUD** para la entidad `Student` y sus `Pet`, con **almacenamiento en memoria** a través de repositorios respaldados por diccionarios. Los datos viven mientras el proceso esté corriendo.
 
 ## Tecnologías
@@ -223,6 +227,51 @@ La aplicación queda disponible en:
 - `http://localhost:3000/docs`
 
 > Al ser un almacenamiento en memoria, los datos se pierden cada vez que se reinicia el servidor (incluido el reload de desarrollo).
+
+## PostgreSQL y Adminer (Taller Evaluado II)
+
+Necesitas Docker con Compose, Python 3.13 y `uv`. Desde la raíz del proyecto:
+
+1. Copia `.env.example` a `.env` (`Copy-Item .env.example .env` en PowerShell o
+   `cp .env.example .env` en Linux/macOS). Cambia `POSTGRES_PASSWORD` por una
+   contraseña local propia. `.env` está excluido de Git.
+2. Ajusta `POSTGRES_USER`, `POSTGRES_DB`, `DB_PORT` y `ADMINER_PORT` si hay
+   conflictos con otros servicios. Deja `DB_HOST=127.0.0.1` cuando la API se
+   ejecuta en el equipo y PostgreSQL en Docker.
+3. Valida y levanta los dos contenedores:
+
+   ```bash
+   docker compose config
+   docker compose up -d
+   docker compose ps
+   ```
+
+4. Instala las dependencias de Python y ejecuta la API en otra terminal:
+
+   ```bash
+   uv sync
+   uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 3000
+   ```
+
+5. Abre <http://127.0.0.1:3000/health/db>. Debe responder
+   `{"database":"ok"}`. Este endpoint ejecuta `SELECT 1` en PostgreSQL; si
+   falla la conexión, responde `503`. También puedes verificar el servidor con
+   `docker compose exec db sh -c 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"'`.
+6. Abre Adminer en `http://127.0.0.1:<ADMINER_PORT>`. Selecciona **PostgreSQL**,
+   servidor `db`, y usa el usuario, contraseña y base definidos en `.env`.
+   `db` es el nombre del servicio dentro de la red compartida de Compose;
+   desde la API local se usa `127.0.0.1` y `DB_PORT`.
+
+Para detener los contenedores usa `docker compose down`. El volumen
+`postgres_data` conserva los datos al detenerlos o recrearlos. PostgreSQL
+aplica `POSTGRES_USER`, `POSTGRES_PASSWORD` y `POSTGRES_DB` al inicializar un
+volumen vacío; cambiar esas variables después requiere coordinar la base ya
+creada con el equipo.
+
+La configuración compartida de SQLAlchemy está en `app/shared/database.py`:
+`get_engine()` devuelve el motor para los repositorios ORM y
+`get_database_url()` construye la URL para futuras migraciones. Los modelos,
+migraciones y transacciones se integrarán en las ramas de Gabriel y Roberto.
 
 ## Comandos útiles
 

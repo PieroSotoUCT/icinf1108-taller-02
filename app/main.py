@@ -2,10 +2,13 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.pets.pets_controller import router as pets_router
 from app.shared.api_response import envelope_middleware
+from app.shared.database import get_engine
 from app.shared.exceptions import (
     generic_exception_handler,
     http_exception_handler,
@@ -38,6 +41,17 @@ def create_app() -> FastAPI:
 
     app.include_router(students_router)
     app.include_router(pets_router)
+
+    @app.get("/health/db")
+    def database_health() -> dict[str, str]:
+        try:
+            with get_engine().connect() as connection:
+                connection.execute(text("SELECT 1"))
+        except (RuntimeError, ValueError, SQLAlchemyError) as exc:
+            raise HTTPException(
+                status_code=503, detail="No se pudo conectar a PostgreSQL"
+            ) from exc
+        return {"database": "ok"}
 
     @app.api_route(
         "/api/{path:path}",
