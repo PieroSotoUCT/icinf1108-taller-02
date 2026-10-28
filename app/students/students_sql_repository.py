@@ -31,7 +31,9 @@ class StudentsSqlRepository:
         return self._to_schema(model)
 
     def find_by_email(self, email: str) -> Student | None:
-        statement = select(StudentModel).where(StudentModel.email == email)
+        statement = select(StudentModel).where(
+            StudentModel.email == email
+        )
         model = self.session.scalar(statement)
 
         if model is None:
@@ -54,7 +56,9 @@ class StudentsSqlRepository:
         student_uuid = self._to_uuid(student.id)
 
         if student_uuid is None:
-            raise ValueError("El identificador del estudiante no es un UUID válido")
+            raise ValueError(
+                "El identificador del estudiante no es un UUID válido"
+            )
 
         model = self.session.get(StudentModel, student_uuid)
 
@@ -65,7 +69,7 @@ class StudentsSqlRepository:
                 username=student.username,
                 email=str(student.email),
                 age=student.age,
-  ed_at=student.createdAt,
+                created_at=student.createdAt,
                 updated_at=student.updatedAt,
             )
             self.session.add(model)
