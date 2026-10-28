@@ -1,7 +1,8 @@
 import os
 
 DEFAULT_DATABASE_URL = (
-    "postgresql+psycopg://postgres:postgres@localhost:5432/students_pets"
+    "postgresql+psycopg://taller_user:"
+    "cambia-esta-clave-local@127.0.0.1:5432/taller_db"
 )
 
 
