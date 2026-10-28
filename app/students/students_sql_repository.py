@@ -18,7 +18,12 @@ class StudentsSqlRepository:
         return [self._to_schema(model) for model in models]
 
     def find_by_id(self, student_id: str) -> Student | None:
-        model = self.session.get(StudentModel, self._to_uuid(student_id))
+        student_uuid = self._to_uuid(student_id)
+
+        if student_uuid is None:
+            return None
+
+        model = self.session.get(StudentModel, student_uuid)
 
         if model is None:
             return None
@@ -35,7 +40,9 @@ class StudentsSqlRepository:
         return self._to_schema(model)
 
     def find_by_username(self, username: str) -> Student | None:
-        statement = select(StudentModel).where(StudentModel.username == username)
+        statement = select(StudentModel).where(
+            StudentModel.username == username
+        )
         model = self.session.scalar(statement)
 
         if model is None:
@@ -45,6 +52,10 @@ class StudentsSqlRepository:
 
     def save(self, student: Student) -> Student:
         student_uuid = self._to_uuid(student.id)
+
+        if student_uuid is None:
+            raise ValueError("El identificador del estudiante no es un UUID válido")
+
         model = self.session.get(StudentModel, student_uuid)
 
         if model is None:
@@ -54,7 +65,7 @@ class StudentsSqlRepository:
                 username=student.username,
                 email=str(student.email),
                 age=student.age,
-                created_at=student.createdAt,
+  ed_at=student.createdAt,
                 updated_at=student.updatedAt,
             )
             self.session.add(model)
@@ -71,15 +82,23 @@ class StudentsSqlRepository:
         return self._to_schema(model)
 
     def delete(self, student_id: str) -> None:
-        model = self.session.get(StudentModel, self._to_uuid(student_id))
+        student_uuid = self._to_uuid(student_id)
+
+        if student_uuid is None:
+            return
+
+        model = self.session.get(StudentModel, student_uuid)
 
         if model is not None:
             self.session.delete(model)
             self.session.flush()
 
     @staticmethod
-    def _to_uuid(student_id: str) -> UUID:
-        return UUID(student_id)
+    def _to_uuid(student_id: str) -> UUID | None:
+        try:
+            return UUID(student_id)
+        except ValueError:
+            return None
 
     @staticmethod
     def _to_schema(model: StudentModel) -> Student:
