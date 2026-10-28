@@ -1,15 +1,14 @@
 # CRUD Students & Pets (FastAPI)
 
-La rama `piero` agrega PostgreSQL y Adminer para el Taller Evaluado II. La API ya
-puede comprobar su conexión a PostgreSQL; los repositorios CRUD del template aún
-guardan datos en memoria hasta que Gabriel y Roberto integren el ORM.
-
-Proyecto FastAPI que implementa un **CRUD** para la entidad `Student` y sus `Pet`, con **almacenamiento en memoria** a través de repositorios respaldados por diccionarios. Los datos viven mientras el proceso esté corriendo.
+Proyecto FastAPI que implementa un **CRUD** para `Student` y `Pet` con SQLAlchemy y
+PostgreSQL. Las operaciones de escritura usan transacciones; un estudiante y sus
+mascotas se crean o eliminan como una sola unidad.
 
 ## Tecnologías
 
 - Python 3.13
-- FastAPI + repositorios en memoria
+- FastAPI + SQLAlchemy 2 + Alembic
+- PostgreSQL
 - HTML + JS + Tailwind CSS (frontend estático)
 
 ## Resumen funcional
@@ -50,7 +49,9 @@ La API expone operaciones CRUD completas sobre estudiantes y mascotas:
 
 Si no se envía `pets` (o se envía vacío), el comportamiento es exactamente el mismo de antes.
 
-> **Punto de transacción:** este endpoint realiza varias escrituras (el estudiante y cada mascota). Con un ORM/SQL, todas deben ejecutarse dentro de una transacción: si una mascota falla (por ejemplo, por nombre duplicado), el estudiante y las mascotas anteriores no deben quedar guardados. En esta versión en memoria la implementación es secuencial y **no** hace rollback, a propósito, para que la actividad de ORM/transacciones parta de ese problema.
+> **Transacción:** las escrituras del estudiante y sus mascotas se ejecutan dentro de
+> una sola transacción. Si falla una mascota (por ejemplo, por nombre duplicado), se
+> revierten el estudiante y todas las mascotas de esa petición.
 
 ### Modelo de datos
 
@@ -189,7 +190,7 @@ El cliente estático (`public/`) consume este estándar de forma uniforme:
 ## Contexto técnico
 
 - **Backend**: FastAPI
-- **Persistencia**: en memoria (repositorios respaldados por diccionarios); los datos se pierden al reiniciar
+- **Persistencia**: PostgreSQL mediante SQLAlchemy; los cambios de esquema se versionan con Alembic
 - **Validación**: Pydantic v2
 - **Frontend**: archivos estáticos en `public/` (Alpine.js + Tailwind CSS + vanilla-sonner, vía CDN)
 - **Gestor de dependencias**: uv
@@ -221,12 +222,20 @@ El cliente estático (`public/`) consume este estándar de forma uniforme:
     uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 3000
     ```
 
+3. Aplicar las migraciones antes de iniciar la API:
+
+    ```bash
+    uv run alembic upgrade head
+    ```
+
 La aplicación queda disponible en:
 
 - `http://localhost:3000`
 - `http://localhost:3000/docs`
 
-> Al ser un almacenamiento en memoria, los datos se pierden cada vez que se reinicia el servidor (incluido el reload de desarrollo).
+Los datos persisten en PostgreSQL al reiniciar el servidor. Copia `.env.example` a
+`.env`, configura las credenciales locales y levanta PostgreSQL con
+`docker compose up -d db` antes de migrar.
 
 ## PostgreSQL y Adminer (Taller Evaluado II)
 
@@ -280,4 +289,6 @@ migraciones y transacciones se integrarán en las ramas de Gabriel y Roberto.
 - `make lint` — ejecuta Ruff (con autocorrección)
 - `make format` — formatea el código con Ruff
 - `make format-check` — verifica el formato
+- `make migrate` — aplica las migraciones pendientes
+- `make test` — ejecuta pruebas de integración y rollback
 - `make clean` — elimina `.venv`, cachés y artefactos
