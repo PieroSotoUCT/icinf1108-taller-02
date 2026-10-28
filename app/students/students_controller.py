@@ -1,6 +1,9 @@
-from fastapi import APIRouter
+from typing import Annotated
 
-from app.pets.pets_service import pets_service
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+
+from app.shared.database import get_db_session
 from app.students.students_schemas import (
     CreateStudentDto,
     Student,
@@ -13,28 +16,35 @@ router = APIRouter(prefix="/api/students", tags=["Students"])
 
 
 @router.get("")
-def find_all() -> StudentList:
-    return students_service.find_all()
+def find_all(session: Annotated[Session, Depends(get_db_session)]) -> StudentList:
+    return students_service.find_all(session)
 
 
 @router.get("/{studentId}")
-def find_by_id(studentId: str) -> Student:
-    return students_service.find_by_id(studentId)
+def find_by_id(
+    studentId: str, session: Annotated[Session, Depends(get_db_session)]
+) -> Student:
+    return students_service.find_by_id(session, studentId)
 
 
 @router.post("", status_code=201)
-def create(body: CreateStudentDto) -> Student:
-    return students_service.create(body)
+def create(
+    body: CreateStudentDto, session: Annotated[Session, Depends(get_db_session)]
+) -> Student:
+    return students_service.create(session, body)
 
 
 @router.patch("/{studentId}")
-def update(studentId: str, body: UpdateStudentDto) -> Student:
-    return students_service.update(studentId, body)
+def update(
+    studentId: str,
+    body: UpdateStudentDto,
+    session: Annotated[Session, Depends(get_db_session)],
+) -> Student:
+    return students_service.update(session, studentId, body)
 
 
 @router.delete("/{studentId}")
-def delete(studentId: str) -> Student:
-    deleted = students_service.delete(studentId)
-    pets_service.delete_all_for_student(studentId)
-
-    return deleted
+def delete(
+    studentId: str, session: Annotated[Session, Depends(get_db_session)]
+) -> Student:
+    return students_service.delete(session, studentId)

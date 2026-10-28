@@ -20,9 +20,7 @@ from app.students.students_controller import router as students_router
 def create_app() -> FastAPI:
     app = FastAPI(
         title="FastAPI CRUD Students & Pets",
-        description=(
-            "API de un CRUD en memoria para la entidad Student y sus mascotas (Pet)"
-        ),
+        description=("API CRUD de estudiantes y sus mascotas con persistencia ORM"),
         version="1.0",
     )
 
