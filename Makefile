@@ -1,4 +1,4 @@
-.PHONY: install dev prod lint format format-check clean check-tools
+.PHONY: install dev prod lint format format-check migrate test clean check-tools
 
 check-tools:
 	@if ! command -v uv >/dev/null 2>&1; then \
@@ -23,6 +23,12 @@ format:
 
 format-check:
 	uv run ruff format --check app
+
+migrate:
+	uv run alembic upgrade head
+
+test:
+	uv run pytest
 
 clean:
 	rm -rf .venv dist .ruff_cache

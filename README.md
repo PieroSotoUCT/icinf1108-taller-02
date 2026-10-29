@@ -1,11 +1,14 @@
 # CRUD Students & Pets (FastAPI)
 
-Proyecto FastAPI que implementa un **CRUD** para la entidad `Student` y sus `Pet`, con **almacenamiento en memoria** a través de repositorios respaldados por diccionarios. Los datos viven mientras el proceso esté corriendo.
+Proyecto FastAPI que implementa un **CRUD** para `Student` y `Pet` con SQLAlchemy y
+PostgreSQL. Las operaciones de escritura usan transacciones; un estudiante y sus
+mascotas se crean o eliminan como una sola unidad.
 
 ## Tecnologías
 
 - Python 3.13
-- FastAPI + repositorios en memoria
+- FastAPI + SQLAlchemy 2 + Alembic
+- PostgreSQL
 - HTML + JS + Tailwind CSS (frontend estático)
 
 ## Resumen funcional
@@ -46,7 +49,9 @@ La API expone operaciones CRUD completas sobre estudiantes y mascotas:
 
 Si no se envía `pets` (o se envía vacío), el comportamiento es exactamente el mismo de antes.
 
-> **Punto de transacción:** este endpoint realiza varias escrituras (el estudiante y cada mascota). Con un ORM/SQL, todas deben ejecutarse dentro de una transacción: si una mascota falla (por ejemplo, por nombre duplicado), el estudiante y las mascotas anteriores no deben quedar guardados. En esta versión en memoria la implementación es secuencial y **no** hace rollback, a propósito, para que la actividad de ORM/transacciones parta de ese problema.
+> **Transacción:** las escrituras del estudiante y sus mascotas se ejecutan dentro de
+> una sola transacción. Si falla una mascota (por ejemplo, por nombre duplicado), se
+> revierten el estudiante y todas las mascotas de esa petición.
 
 ### Modelo de datos
 
@@ -185,7 +190,7 @@ El cliente estático (`public/`) consume este estándar de forma uniforme:
 ## Contexto técnico
 
 - **Backend**: FastAPI
-- **Persistencia**: en memoria (repositorios respaldados por diccionarios); los datos se pierden al reiniciar
+- **Persistencia**: PostgreSQL mediante SQLAlchemy; los cambios de esquema se versionan con Alembic
 - **Validación**: Pydantic v2
 - **Frontend**: archivos estáticos en `public/` (Alpine.js + Tailwind CSS + vanilla-sonner, vía CDN)
 - **Gestor de dependencias**: uv
@@ -217,12 +222,65 @@ El cliente estático (`public/`) consume este estándar de forma uniforme:
     uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 3000
     ```
 
+3. Aplicar las migraciones antes de iniciar la API:
+
+    ```bash
+    uv run alembic upgrade head
+    ```
+
 La aplicación queda disponible en:
 
 - `http://localhost:3000`
 - `http://localhost:3000/docs`
 
-> Al ser un almacenamiento en memoria, los datos se pierden cada vez que se reinicia el servidor (incluido el reload de desarrollo).
+Los datos persisten en PostgreSQL al reiniciar el servidor. Copia `.env.example` a
+`.env`, configura las credenciales locales y levanta PostgreSQL con
+`docker compose up -d db` antes de migrar.
+
+## PostgreSQL y Adminer (Taller Evaluado II)
+
+Necesitas Docker con Compose, Python 3.13 y `uv`. Desde la raíz del proyecto:
+
+1. Copia `.env.example` a `.env` (`Copy-Item .env.example .env` en PowerShell o
+   `cp .env.example .env` en Linux/macOS). Cambia `POSTGRES_PASSWORD` por una
+   contraseña local propia. `.env` está excluido de Git.
+2. Ajusta `POSTGRES_USER`, `POSTGRES_DB`, `DB_PORT` y `ADMINER_PORT` si hay
+   conflictos con otros servicios. Deja `DB_HOST=127.0.0.1` cuando la API se
+   ejecuta en el equipo y PostgreSQL en Docker.
+3. Valida y levanta los dos contenedores:
+
+   ```bash
+   docker compose config
+   docker compose up -d
+   docker compose ps
+   ```
+
+4. Instala las dependencias de Python y ejecuta la API en otra terminal:
+
+   ```bash
+   uv sync
+   uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 3000
+   ```
+
+5. Abre <http://127.0.0.1:3000/health/db>. Debe responder
+   `{"database":"ok"}`. Este endpoint ejecuta `SELECT 1` en PostgreSQL; si
+   falla la conexión, responde `503`. También puedes verificar el servidor con
+   `docker compose exec db sh -c 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"'`.
+6. Abre Adminer en `http://127.0.0.1:<ADMINER_PORT>`. Selecciona **PostgreSQL**,
+   servidor `db`, y usa el usuario, contraseña y base definidos en `.env`.
+   `db` es el nombre del servicio dentro de la red compartida de Compose;
+   desde la API local se usa `127.0.0.1` y `DB_PORT`.
+
+Para detener los contenedores usa `docker compose down`. El volumen
+`postgres_data` conserva los datos al detenerlos o recrearlos. PostgreSQL
+aplica `POSTGRES_USER`, `POSTGRES_PASSWORD` y `POSTGRES_DB` al inicializar un
+volumen vacío; cambiar esas variables después requiere coordinar la base ya
+creada con el equipo.
+
+La configuración compartida de SQLAlchemy está en `app/shared/database.py`:
+`get_engine()` devuelve el motor para los repositorios ORM y
+`get_database_url()` construye la URL para futuras migraciones. Los modelos,
+migraciones y transacciones se integrarán en las ramas de Gabriel y Roberto.
 
 ## Comandos útiles
 
@@ -231,4 +289,6 @@ La aplicación queda disponible en:
 - `make lint` — ejecuta Ruff (con autocorrección)
 - `make format` — formatea el código con Ruff
 - `make format-check` — verifica el formato
+- `make migrate` — aplica las migraciones pendientes
+- `make test` — ejecuta pruebas de integración y rollback
 - `make clean` — elimina `.venv`, cachés y artefactos
